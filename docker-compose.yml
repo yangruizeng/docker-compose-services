@@ -1,0 +1,74 @@
+version: "2"
+
+services:
+  kafka:
+    image: docker.io/bitnami/kafka:3.5
+    restart: always
+    ports:
+      - "19092:9092"
+    volumes:
+      - "./data/kafka_data:/bitnami" # 这里需要创建目录并授权mkdir -p ./data/kafka_data; chown 1001 ./data/kafka_data
+    environment:
+      # KRaft settings
+      - KAFKA_CFG_NODE_ID=0
+      - KAFKA_CFG_PROCESS_ROLES=controller,broker
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
+      # Listeners
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://宿主机ip:19092
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_HEAP_OPTS=-Xmx1024M -Xms1024M # 设置jvm大小
+      - KAFKA_CFG_LOG_RETENTION_HOURS=48
+      - KAFKA_CFG_DEFAULT_REPLICATION_FACTOR=1
+      - KAFKA_CFG_NUM_IO_THREADS=8
+      - KAFKA_CFG_NUM_NETWORK_THREADS=3
+      - KAFKA_CFG_NUM_PARTITIONS=6
+
+  kafka-ui:
+    container_name: kafka-ui
+    restart: always
+    image: provectuslabs/kafka-ui:latest
+    ports:
+      - 28080:8080 # 访问http://localhost:28080/ui/clusters/create-new-cluster连接kafka
+    environment:
+      DYNAMIC_CONFIG_ENABLED: 'true'
+    #volumes:
+    #  - ./kui/config.yml:/etc/kafkaui/dynamic_config.yaml # 或者使用配置文件
+
+  postgres:
+    image: postgres:14.3
+    ports:
+      - 5432:5432
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres_pass 
+
+  qdrant:
+    image: qdrant/qdrant
+    restart: always
+    ports:
+      - 6333:6333
+      - 6334:6334
+    volumes:
+      - ./data/qdrant:/qdrant/storage
+
+  redis:
+    image: redis:7.0.10
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./data/redis:/data
+    # 想自定义配置文件，放开西边两行
+      #- ./config/redis/redis.conf:/etc/redis.conf
+    #command: ["redis-server", "/etc/redis.conf"]
